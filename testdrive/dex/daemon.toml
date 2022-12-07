@@ -1,0 +1,38 @@
+# sudo docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 -v ~/.redis/data/:/data -v ~/.redis/redis-stack.conf:/etc/redis/redis.conf redis/redis-stack:latest
+
+[source]
+type = "N2N"
+address = "localhost:3000"
+
+[enrich]
+type = "Sled"
+db_path = "/home/pioneer/scrolls/sled_db_with_start"
+
+[[reducers]]
+type = "UtxoByAddress"
+key_prefix = "minswap.order"
+filter = ["addr1wxn9efv2f6w82hagxqtn62ju4m293tqvw0uhmdl64ch8uwc0h43gt"] # Order Contract address
+
+[[reducers]]
+type = "LiquidityByTokenPair"
+key_prefix = "minswap.pool"
+filter_policy_ids_hex = ["13aa2accf2e1561723aa26871e071fdf32c867cff7e7d50ad470d62f", "0be55d262b29f564998ff81efe21bdc0022621c12f15af08d0f2ddb1"] # Pool Factory NFT policy & Liquidity Pool Policy NFT
+pool_contract_address = "addr1z8snz7c4974vzdpxu65ruphl3zjdvtxw8strf2c2tmqnxz2j2c79gy9l76sdg0xwhd7r0c0kna0tycz4y5s6mlenh8pq0xmsha" # Pool Contract address
+
+[policy]
+missing_data = "Skip"
+
+[storage]
+type = "Redis"
+connection_params = "redis://127.0.0.1:6379"
+
+#[intersect]
+#type = "Origin"
+
+[intersect]
+type = "Point"
+value = [78494918, "4b2ceabe41f61f645621322a97e6fe6d7a1b1180fb87f6a4e6a0ade2f8582a5c"]
+#value = [57867490, "c491c5006192de2c55a95fb3544f60b96bd1665accaf2dfa2ab12fc7191f016b"]
+
+[chain]
+type = "Mainnet"
