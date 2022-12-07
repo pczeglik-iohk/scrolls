@@ -77,7 +77,7 @@ impl Config {
             Config::UtxoByAddress(c) => c.plugin(policy),
             Config::PointByTx(c) => c.plugin(),
             Config::PoolByStake(c) => c.plugin(),
-            Config::LiquidityByTokenPair(c) => c.plugin(),
+            Config::LiquidityByTokenPair(c) => c.plugin(policy),
 
             #[cfg(feature = "unstable")]
             Config::AddressByTxo(c) => c.plugin(policy),
@@ -187,7 +187,7 @@ impl Reducer {
             Reducer::UtxoByAddress(x) => x.reduce_block(block, ctx, output),
             Reducer::PointByTx(x) => x.reduce_block(block, output),
             Reducer::PoolByStake(x) => x.reduce_block(block, output),
-            Reducer::LiquidityByTokenPair(x) => x.reduce_block(block, output),
+            Reducer::LiquidityByTokenPair(x) => x.reduce_block(block, ctx, output),
 
             #[cfg(feature = "unstable")]
             Reducer::AddressByTxo(x) => x.reduce_block(block, ctx, output),
