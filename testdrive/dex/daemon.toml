@@ -23,6 +23,9 @@ filter_policy_ids_hex = [
 # Pool Contract address
 pool_contract_address = "addr1z8snz7c4974vzdpxu65ruphl3zjdvtxw8strf2c2tmqnxz2j2c79gy9l76sdg0xwhd7r0c0kna0tycz4y5s6mlenh8pq0xmsha"
 
+[policy]
+missing_data = "Skip"
+
 [storage]
 type = "Redis"
 connection_params = "redis://127.0.0.1:6379"
