@@ -57,42 +57,53 @@ impl Reducer {
     }
 
     fn key_for_asset(&self, asset: &Asset) -> Option<String> {
-        if let (Some(policy_id), Some(name)) = (asset.policy_hex(), asset.ascii_name()) {
-            return Some(format!("{}.{}", policy_id, name));
+        if let (Some(policy_id), Some(asset_name)) = (asset.policy_hex(), asset.ascii_name()) {
+            return Some(format!("{}.{}", policy_id, asset_name))
         }
         return None
     }
 
-    fn get_key_value_pair(&self, mut non_fungible_assets: Vec<Asset>, utxo: &MultiEraOutput) -> Option<(String, String)> {
+    fn get_key_value_pair(&self, mut fungible_non_ada_assets: Vec<Asset>, utxo: &MultiEraOutput) -> Option<(String, String)> {
         let key: String;
         let member: String;
 
-        match (non_fungible_assets.len(), utxo.non_ada_assets().len()) {
+        match (fungible_non_ada_assets.len(), utxo.non_ada_assets().len()) {
             // ADA / native asset pool
             (1, 3) => {
-                let asset = non_fungible_assets.get(0).unwrap();
-                // key is just a single policy id
-                key = self.key_for_asset(asset).unwrap();
-                match *asset {
-                    Asset::NativeAsset(_, _, q) => {
-                        member = format!("{}:{}", utxo.lovelace_amount().to_string(), q.to_string());
-                    },
-                    _ => return None
+                if let Some(asset) = fungible_non_ada_assets.get(0) {
+                    // key is just a single policy id
+                    match self.key_for_asset(asset) {
+                        Some(k) => key = k,
+                        None => return None
+                    }
+                    match *asset {
+                        Asset::NativeAsset(_, _, q) => {
+                            member = format!("{}:{}", utxo.lovelace_amount().to_string(), q.to_string());
+                        },
+                        _ => return None
+                    }
+                } else {
+                    return None
                 }
             },
             // native asset / native asset pool
             (2, 4) => {
                 // sort by policy id to always create same redis keys
-                non_fungible_assets.sort_by(|a1, a2| a1.policy_hex().unwrap().cmp(&a2.policy_hex().unwrap()));
-                let asset_a = non_fungible_assets.get(0).unwrap();
-                let asset_b = non_fungible_assets.get(1).unwrap();
-                key = format!("{}:{}", self.key_for_asset(asset_a).unwrap(), self.key_for_asset(asset_b).unwrap());
-                
-                match (asset_a, asset_b) {
-                    (Asset::NativeAsset(_, _, q1), Asset::NativeAsset(_, _, q2)) => {
-                        member = format!("{}:{}", q1.to_string(), q2.to_string())
-                    },
-                    _ => return None
+                fungible_non_ada_assets.sort_by(|a1, a2| a1.policy_hex().unwrap().cmp(&a2.policy_hex().unwrap()));
+
+                if let (Some(asset_a), Some(asset_b)) = (fungible_non_ada_assets.get(0), fungible_non_ada_assets.get(1)) {
+                    match (self.key_for_asset(asset_a), self.key_for_asset(asset_b)) {
+                        (Some(k1), Some(k2)) => key = format!("{}:{}", k1, k2),
+                        _ => return None
+                    }
+                    match (asset_a, asset_b) {
+                        (Asset::NativeAsset(_, _, q1), Asset::NativeAsset(_, _, q2)) => {
+                            member = format!("{}:{}", q1.to_string(), q2.to_string())
+                        },
+                        _ => return None
+                    }
+                } else {
+                    return None
                 }
             },
             _ => return None // invalid asset number
