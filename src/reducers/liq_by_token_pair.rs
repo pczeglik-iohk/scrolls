@@ -1,4 +1,4 @@
-use pallas::ledger::traverse::{MultiEraBlock, MultiEraOutput, Asset, MultiEraTx, OutputRef};
+use pallas::ledger::traverse::{Asset, MultiEraBlock, MultiEraOutput, MultiEraTx, OutputRef};
 use serde::Deserialize;
 
 use crate::{crosscut, model, prelude::*};
@@ -6,6 +6,7 @@ use crate::{crosscut, model, prelude::*};
 #[derive(Deserialize)]
 pub struct Config {
     pub key_prefix: Option<String>,
+    pub member_prefix: String,
     // filter for outputs with factory or pool NFT
     pub filter_policy_ids_hex: Option<Vec<String>>,
     pub pool_contract_address: String,
@@ -17,27 +18,28 @@ pub struct Reducer {
 }
 
 impl Reducer {
-
     fn contains_expected_policy_ids(&self, assets: Vec<Asset>) -> bool {
         match &self.config.filter_policy_ids_hex {
             Some(expected_policy_ids) => {
                 for policy_id in expected_policy_ids {
                     let mut found = false;
-        
+
                     for asset in &assets {
-                        if found { break; }
+                        if found {
+                            break;
+                        }
                         if let Some(pid) = asset.policy_hex() {
                             found = pid.eq(policy_id)
                         }
                     }
 
                     if !found {
-                        return false
+                        return false;
                     }
                 }
-                return true
-            },
-            None => true
+                return true;
+            }
+            None => true,
         }
     }
 
@@ -49,67 +51,94 @@ impl Reducer {
                     if quantity > 1 {
                         non_ada_fungible_assets.push(asset);
                     }
-                },
+                }
                 _ => (),
             }
         }
-        return non_ada_fungible_assets
+        return non_ada_fungible_assets;
     }
 
     fn key_for_asset(&self, asset: &Asset) -> Option<String> {
         if let (Some(policy_id), Some(asset_name)) = (asset.policy_hex(), asset.ascii_name()) {
-            return Some(format!("{}.{}", policy_id, asset_name))
+            return Some(format!("{}.{}", policy_id, asset_name));
         }
-        return None
+        return None;
     }
 
-    fn get_key_value_pair(&self, mut fungible_non_ada_assets: Vec<Asset>, utxo: &MultiEraOutput) -> Option<(String, String)> {
+    fn get_key_value_pair(
+        &self,
+        mut fungible_non_ada_assets: Vec<Asset>,
+        utxo: &MultiEraOutput,
+    ) -> Option<(String, String)> {
         let key: String;
         let member: String;
 
-        match (fungible_non_ada_assets.len(), utxo.non_ada_assets().len()) {
-            // ADA / native asset pool
-            (1, 3) => {
-                if let Some(asset) = fungible_non_ada_assets.get(0) {
-                    // key is just a single policy id
-                    match self.key_for_asset(asset) {
-                        Some(k) => key = k,
-                        None => return None
-                    }
-                    match *asset {
-                        Asset::NativeAsset(_, _, q) => {
-                            member = format!("{}:{}", utxo.lovelace_amount().to_string(), q.to_string());
-                        },
-                        _ => return None
-                    }
-                } else {
-                    return None
-                }
-            },
-            // native asset / native asset pool
-            (2, 4) => {
-                // sort by policy id to always create same redis keys
-                fungible_non_ada_assets.sort_by(|a1, a2| a1.policy_hex().unwrap().cmp(&a2.policy_hex().unwrap()));
-
-                if let (Some(asset_a), Some(asset_b)) = (fungible_non_ada_assets.get(0), fungible_non_ada_assets.get(1)) {
-                    match (self.key_for_asset(asset_a), self.key_for_asset(asset_b)) {
-                        (Some(k1), Some(k2)) => key = format!("{}:{}", k1, k2),
-                        _ => return None
-                    }
-                    match (asset_a, asset_b) {
-                        (Asset::NativeAsset(_, _, q1), Asset::NativeAsset(_, _, q2)) => {
-                            member = format!("{}:{}", q1.to_string(), q2.to_string())
-                        },
-                        _ => return None
-                    }
-                } else {
-                    return None
-                }
-            },
-            _ => return None // invalid asset number
+        let mut min_non_ada_assets = 0;
+        match &self.config.filter_policy_ids_hex {
+            Some(policies) => {
+                min_non_ada_assets = policies.len();
+            }
+            _ => (),
         }
 
-        return Some((key, member))
+        if utxo.non_ada_assets().len() == min_non_ada_assets + 1
+            && fungible_non_ada_assets.len() == 1
+        {
+            // ada pool
+            if let Some(asset) = fungible_non_ada_assets.get(0) {
+                // key is just a single policy id
+                match self.key_for_asset(asset) {
+                    Some(k) => key = k,
+                    None => return None,
+                }
+                match *asset {
+                    Asset::NativeAsset(_, _, q) => {
+                        member = format!(
+                            "{}:{}:{}",
+                            self.config.member_prefix,
+                            utxo.lovelace_amount().to_string(),
+                            q.to_string()
+                        );
+                    }
+                    _ => return None,
+                }
+            } else {
+                return None;
+            }
+        } else if utxo.non_ada_assets().len() == min_non_ada_assets + 2
+            && fungible_non_ada_assets.len() == 2
+        {
+            // sort by policy id to always create same redis keys
+            fungible_non_ada_assets
+                .sort_by(|a1, a2| a1.policy_hex().unwrap().cmp(&a2.policy_hex().unwrap()));
+
+            if let (Some(asset_a), Some(asset_b)) = (
+                fungible_non_ada_assets.get(0),
+                fungible_non_ada_assets.get(1),
+            ) {
+                match (self.key_for_asset(asset_a), self.key_for_asset(asset_b)) {
+                    (Some(k1), Some(k2)) => key = format!("{}:{}", k1, k2),
+                    _ => return None,
+                }
+                match (asset_a, asset_b) {
+                    (Asset::NativeAsset(_, _, q1), Asset::NativeAsset(_, _, q2)) => {
+                        member = format!(
+                            "{}:{}:{}",
+                            self.config.member_prefix,
+                            q1.to_string(),
+                            q2.to_string()
+                        )
+                    }
+                    _ => return None,
+                }
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
+
+        return Some((key, member));
     }
 
     fn process_consumed_txo(
@@ -121,29 +150,26 @@ impl Reducer {
         let utxo = ctx.find_utxo(input).apply_policy(&self.policy).or_panic()?;
         let utxo = match utxo {
             Some(x) => x,
-            None => return Ok(())
+            None => return Ok(()),
         };
         let address = utxo.address().map(|addr| addr.to_string()).or_panic()?;
         if address != self.config.pool_contract_address {
-            return Ok(())
+            return Ok(());
         }
 
         if !self.contains_expected_policy_ids(utxo.non_ada_assets()) {
-            return Ok(())
+            return Ok(());
         }
 
         let fungible_non_ada_assets: Vec<Asset> = self.get_fungible_assets(utxo.non_ada_assets());
         if let Some((key, member)) = self.get_key_value_pair(fungible_non_ada_assets, &utxo) {
             // removes member from liquidity pool (old liquidity)
-            let crdt = model::CRDTCommand::set_remove(
-                self.config.key_prefix.as_deref(),
-                &key,
-                member
-            );
+            let crdt =
+                model::CRDTCommand::set_remove(self.config.key_prefix.as_deref(), &key, member);
 
             output.send(crdt.into())
         } else {
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -156,25 +182,21 @@ impl Reducer {
     ) -> Result<(), gasket::error::Error> {
         let address = utxo.address().map(|addr| addr.to_string()).or_panic()?;
         if address != self.config.pool_contract_address {
-            return Ok(())
+            return Ok(());
         }
 
         if !self.contains_expected_policy_ids(utxo.non_ada_assets()) {
-            return Ok(())
+            return Ok(());
         }
 
         let fungible_non_ada_assets: Vec<Asset> = self.get_fungible_assets(utxo.non_ada_assets());
         if let Some((key, member)) = self.get_key_value_pair(fungible_non_ada_assets, utxo) {
             // adds member to liquidity pool (new liquidity)
-            let crdt = model::CRDTCommand::set_add(
-                self.config.key_prefix.as_deref(),
-                &key,
-                member
-            );
-    
+            let crdt = model::CRDTCommand::set_add(self.config.key_prefix.as_deref(), &key, member);
+
             output.send(crdt.into())
         } else {
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -199,7 +221,6 @@ impl Reducer {
 }
 
 impl Config {
-    
     pub fn plugin(self, policy: &crosscut::policies::RuntimePolicy) -> super::Reducer {
         let reducer = Reducer {
             config: self,

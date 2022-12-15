@@ -8,13 +8,31 @@ db_path = "/home/pioneer/scrolls/sled_db"
 
 [[reducers]]
 type = "UtxoByAddress"
+key_prefix = "sundae.order"
+# Order Contract address
+filter = ["addr1wxaptpmxcxawvr3pzlhgnpmzz3ql43n2tc8mn3av5kx0yzs09tqh8"]
+
+[[reducers]]
+type = "LiquidityByTokenPair"
+key_prefix = "pool"
+member_prefix = "sun"
+# Liquidity Pool Policy NFT
+filter_policy_ids_hex = [
+  "0029cb7c88c7567b63d1a512c0ed626aa169688ec980730c0473b913"
+]
+# Pool Contract address
+pool_contract_address = "addr1w9qzpelu9hn45pefc0xr4ac4kdxeswq7pndul2vuj59u8tqaxdznu"
+
+[[reducers]]
+type = "UtxoByAddress"
 key_prefix = "minswap.order"
 # Order Contract address
 filter = ["addr1wxn9efv2f6w82hagxqtn62ju4m293tqvw0uhmdl64ch8uwc0h43gt"]
 
 [[reducers]]
 type = "LiquidityByTokenPair"
-key_prefix = "minswap.pool"
+key_prefix = "pool"
+member_prefix = "min"
 # Pool Factory NFT policy & Liquidity Pool Policy NFT
 filter_policy_ids_hex = [
   "13aa2accf2e1561723aa26871e071fdf32c867cff7e7d50ad470d62f",
