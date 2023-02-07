@@ -2,8 +2,8 @@ version: "3.7"
 
 services:
   scrolls:
-    image: ghcr.io/pczeglik-iohk/scrolls:latest
-    command: ["daemon"]
+    image: ghcr.io/txpipe/scrolls:latest
+    command: [ "daemon" ]
     environment:
       - RUST_LOG=info
     volumes:
