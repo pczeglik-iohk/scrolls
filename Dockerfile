@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 rust:1-buster as builder-arm64
+FROM --platform=linux/arm64/v8 rust:1-buster as builder-arm64
 
 RUN apt update && apt upgrade -y
 RUN apt install -y g++-arm-linux-gnueabihf libc6-dev-armhf-cross
@@ -14,13 +14,13 @@ ENV CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc \
 
 
 
-FROM --platform=linux/amd64 rust:1-buster as builder-amd64
+FROM --platform=linux/arm64/v8 rust:1-buster as builder-amd64
 
 ENV RUST_TARGET=x86_64-unknown-linux-gnu
 
 
 
-FROM --platform=linux/amd64 builder-${TARGETARCH} as builder
+FROM --platform=linux/arm64/v8 builder-${TARGETARCH} as builder
 
 WORKDIR /code
 

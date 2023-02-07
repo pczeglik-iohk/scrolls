@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   scrolls:
-    image: ghcr.io/pczeglik-iohk/scrolls:latest
+    image: ghcr.io/pczeglik-iohk/scrolls-testdrive:testdrive
     command: ["daemon"]
     environment:
       - RUST_LOG=info
@@ -11,7 +11,7 @@ services:
     links:
       - redis
   redis:
-    image: redis
+    image: arm64v8/redis
     volumes:
       - ./data:/data
     ports:
