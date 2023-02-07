@@ -9,6 +9,7 @@ pub struct Config {
     pub member_prefix: String,
     // filter for outputs with factory or pool NFT
     // comment for build
+    // comment for build
     pub filter_policy_ids_hex: Option<Vec<String>>,
     pub pool_contract_address: String,
 }
